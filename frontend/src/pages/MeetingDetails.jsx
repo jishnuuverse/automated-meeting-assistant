@@ -12,7 +12,6 @@ export default function MeetingDetails() {
   const [meeting, setMeeting] = useState(null)
   const [transcript, setTranscript] = useState([])
   const [summary, setSummary] = useState('')
-  const [actionItems, setActionItems] = useState([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -26,7 +25,6 @@ export default function MeetingDetails() {
       setTranscript(t?.lines || [])
       const s = await meetingAPI.getSummary()
       setSummary(s?.summary || '')
-      setActionItems(s?.action_items || [])
     } catch (e) {
       console.error(e)
       alert('Failed to fetch meeting data from backend')
@@ -36,45 +34,49 @@ export default function MeetingDetails() {
   }
 
   return (
-    <div className="panel">
+    <div className="card">
       {!meeting ? (
         <div className="empty">Meeting not found.</div>
       ) : (
         <div>
-          <h2>Meeting for {meeting.email}</h2>
-          <div style={{ marginBottom: 8 }}>Time: {meeting.time ? new Date(meeting.time).toLocaleString() : meeting.time}</div>
-          <div style={{ marginBottom: 8 }}>
-            Link: <a href={meeting.link} target="_blank" rel="noreferrer">Open Meet</a>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Meeting for {meeting.email}</h2>
+              <div className="muted" style={{ marginTop: 6 }}>{meeting.time ? new Date(meeting.time).toLocaleString() : meeting.time}</div>
+            </div>
+            <div>
+              <a href={meeting.link} target="_blank" rel="noreferrer"><button className="secondary">Open Meet</button></a>
+            </div>
           </div>
 
-          <div className="buttons" style={{ marginBottom: 12 }}>
+          <div style={{ marginTop: 16, marginBottom: 12 }}>
             <button onClick={refresh} disabled={loading}>{loading ? 'Loading...' : 'Fetch Summary & Transcript'}</button>
           </div>
 
-          <div className="viewer">
-            <h3>AI Summary</h3>
-            <div className="summary">{summary || 'No summary available.'}</div>
-          </div>
-
-          <div className="viewer">
-            <h3>Action Items</h3>
-            {actionItems.length === 0 ? <div className="empty">No action items.</div> : (
-              <ul>{actionItems.map((a, i) => <li key={i}>{a}</li>)}</ul>
-            )}
-          </div>
-
-          <div className="viewer">
-            <h3>Transcript</h3>
-            {transcript.length === 0 ? <div className="empty">No transcript available.</div> : (
-              <div className="transcript">
-                {transcript.map((t, idx) => (
-                  <div key={idx} className="line">
-                    <div className="speaker">{t.speaker || 'Speaker'}</div>
-                    <div className="text">{t.text}</div>
-                  </div>
-                ))}
+          <div className="grid">
+            <div>
+              <div className="viewer card" style={{ padding: 14 }}>
+                <h3 style={{ marginTop: 0 }}>AI Summary</h3>
+                <div className="summary">{summary || 'No summary available.'}</div>
               </div>
-            )}
+
+              <div className="viewer card" style={{ padding: 14, marginTop: 12 }}>
+                <h3 style={{ marginTop: 0 }}>Transcript</h3>
+                {transcript.length === 0 ? <div className="empty">No transcript available.</div> : (
+                  <div className="transcript">
+                    {transcript.map((t, idx) => (
+                      <div key={idx} className="line">
+                        <div className="speaker">{t.speaker || 'Speaker'}</div>
+                        <div className="text">{t.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+            </div>
           </div>
         </div>
       )}

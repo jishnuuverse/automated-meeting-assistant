@@ -20,23 +20,27 @@ export default function MeetingsPage() {
   }
 
   return (
-    <div className="panel">
-      <h2>Scheduled Meetings</h2>
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>Scheduled Meetings</h2>
       {meetings.length === 0 ? (
         <div className="empty">No meetings scheduled.</div>
       ) : (
-        <ul>
+        <div style={{ display: 'grid', gap: 12 }}>
           {meetings.map((m) => (
-            <li key={m.id} style={{ marginBottom: 10 }}>
-              <div><strong>{m.email}</strong> — {m.time ? new Date(m.time).toLocaleString() : m.time}</div>
-              <div style={{ marginTop: 6 }}>
-                <Link to={`/meeting/${m.id}`} style={{ marginRight: 8 }}>View</Link>
-                <a href={m.link} target="_blank" rel="noreferrer" style={{ marginRight: 8 }}>Open Meet</a>
-                <button onClick={() => remove(m.id)}>Delete</button>
+            <div key={m.id} className="meeting-row">
+              <div className="meeting-meta">
+                <div style={{ fontWeight: 800 }}>{m.email}</div>
+                <div className="muted" style={{ fontSize: 13 }}>{m.time ? new Date(m.time).toLocaleString() : m.time}</div>
+                <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{m.link}</div>
               </div>
-            </li>
+
+              <div className="meeting-actions">
+                <Link to={`/meeting/${m.id}`}><button className="">View</button></Link>
+                <button className="secondary" onClick={() => remove(m.id)}>Delete</button>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )

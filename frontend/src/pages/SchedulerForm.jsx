@@ -16,10 +16,17 @@ export default function SchedulerForm() {
 
   function handleDone(e) {
     e.preventDefault()
+    // basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!email || !time || !link) {
       alert('Please fill all fields')
       return
     }
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address')
+      return
+    }
+
     const meeting = {
       id: Date.now().toString(),
       email,
@@ -32,24 +39,32 @@ export default function SchedulerForm() {
   }
 
   return (
-    <div className="panel">
+    <div className="card">
       <form onSubmit={handleDone}>
-        <div className="field">
-          <label>Your Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-        </div>
+        <div className="form-grid">
+          <div className="field">
+            <label>Your Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
 
-        <div className="field">
-          <label>Meeting Time</label>
-          <input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} />
+          <div className="field">
+            <label>Meeting Time</label>
+            <input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} required />
+          </div>
         </div>
 
         <div className="field">
           <label>Google Meet Link</label>
-          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/..." />
+          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/..." required />
         </div>
 
-        <div className="buttons">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
           <button type="submit">Done</button>
         </div>
       </form>
