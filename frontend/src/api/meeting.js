@@ -1,22 +1,27 @@
-// Stubbed meeting API: frontend now no-ops network calls to automation service.
+const AUTOMATION_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_AUTOMATION_URL
+  ? import.meta.env.VITE_AUTOMATION_URL
+  : 'http://localhost:4001';
+
 export async function start(body) {
-  console.log('start called (stub)', body)
-  return { started: true }
-}
+  try {
+    console.log('Sending to automation service:', body); // ADD THIS
+    
+    const res = await fetch(`${AUTOMATION_URL}/api/meetings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
 
-export async function stop() {
-  console.log('stop called (stub)')
-  return { stopped: true }
-}
+    if (!res.ok) {
+      const errorText = await res.text(); // Get error details
+      throw new Error(`Request failed: ${res.status} - ${errorText}`);
+    }
 
-export async function getStatus() {
-  return { running: false }
-}
-
-export async function getTranscript() {
-  return null
-}
-
-export async function getSummary() {
-  return null
+    const result = await res.json();
+    console.log('Response from automation service:', result); // ADD THIS
+    return result;
+  } catch (err) {
+    console.error('start failed', err);
+    throw err;
+  }
 }
