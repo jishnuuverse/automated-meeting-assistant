@@ -1,0 +1,141 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+/.pnp
+
+# Build output
+dist/
+build/
+.turbo/
+.cache/
+.parcel-cache/
+out/
+coverage/
+
+# Vite / Next
+.vite/
+.next/
+
+# Environment variables / secrets
+.env
+.env.*
+*.env
+/.env.local
+/.env.*.local
+
+# Credentials and keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.crt
+*.csr
+credentials.json
+google-services.json
+serviceAccountKey.json
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+Icon
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*.swn
+*.kate-swp
+
+# JetBrains
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Archives
+*.gz
+*.zip
+*.tar
+*.rar
+
+# Test output
+junit-report.xml
+test-results/
+
+# Docker
+docker-compose.override.yml
+**/docker-compose.override.yml
+Dockerfile
+docker-compose*.yml
+
+# Certificates
+certs/
+
+# macOS
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.AppleDB
+.AppleDesktop
+.LSOverride
+
+# Windows image file caches
+ehthumbs.db
+Thumbs.db
+
+# Misc
+.vagrant/
+.cache-loader
+.phpunit.result.cache
+composer.lock
+
+# Ignore local config files that may contain secrets
+local.env
+local.settings.json
+settings.local.json
+
+# Ignore backups and generated files
+*.bak
+*.orig
+*.backup
+
+# Ignore coverage, reports
+coverage/
+reports/
+
+# Ignore runtime files
+pids/
+*.pid
+*.seed
+*.pid.lock
