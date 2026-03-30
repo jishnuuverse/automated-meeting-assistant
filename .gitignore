@@ -139,3 +139,40 @@ pids/
 *.pid
 *.seed
 *.pid.lock
+*.wav
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Python virtual environments
+venv/
+.venv/
+ENV/
+env/
+**/venv/
+**/.venv/
+
+# STT generated artifacts
+**/transcripts/
+logs/recordings/
+
+# Pipeline output
+output/

@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import * as meetingAPI from '../api/meeting'
 
 export default function SchedulerForm() {
   const [link, setLink] = useState('')
-  const [scheduledTime, setScheduledTime] = useState('')
+  const [scheduledTime, setScheduledTime] = useState(null)
   const [status, setStatus] = useState('idle') // idle, scheduled, joining, success, error
   const [message, setMessage] = useState('')
   const [scheduledMeetings, setScheduledMeetings] = useState([])
+  const [processingMode, setProcessingMode] = useState('cloud')
+  const joiningRef = useRef(false) // prevent double-submit
 
   useEffect(() => {
     // Check for scheduled meetings every second
@@ -26,7 +30,7 @@ export default function SchedulerForm() {
         
         // If meeting time has arrived, join it
         if (meetingTime <= now && !meeting.joined) {
-          joinMeetingNow(meeting.link, meeting.id)
+          joinMeetingNow(meeting.link, meeting.id, meeting.processing_mode)
           return false // Remove from scheduled list
         }
         return true
@@ -36,19 +40,30 @@ export default function SchedulerForm() {
     })
   }
 
-  async function joinMeetingNow(meetingLink, scheduledId = null) {
+  async function joinMeetingNow(meetingLink, scheduledId = null, meetingProcessingMode = null) {
+    // Prevent double-submit
+    if (joiningRef.current) {
+      console.log('Join already in progress, ignoring duplicate call')
+      return
+    }
+    joiningRef.current = true
+
+    // Use the meeting's own mode if supplied (scheduled meetings), else current toggle
+    const modeToUse = meetingProcessingMode || processingMode
+
     setStatus('joining')
     setMessage(scheduledId ? `⏰ Time to join! Starting browser...` : 'Joining meeting...')
 
     try {
-      // Hardcoded paths - update these to match your system
-      const braveExecutable = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'
-      const userDataDir = 'C:\\Users\\hp\\AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data\\Default'
+      // Ubuntu paths for Brave browser
+      const braveExecutable = '/usr/bin/brave-browser'
+      const userDataDir = '/home/abhijith/.config/BraveSoftware/Brave-Browser/Default'
 
       const result = await meetingAPI.start({
         url: meetingLink,
         braveExecutable,
-        userDataDir
+        userDataDir,
+        processing_mode: modeToUse
       })
 
       console.log('Join result:', result)
@@ -59,7 +74,7 @@ export default function SchedulerForm() {
       setTimeout(() => {
         if (!scheduledId) {
           setLink('')
-          setScheduledTime('')
+          setScheduledTime(null)
         }
         setStatus('idle')
         setMessage('')
@@ -69,6 +84,8 @@ export default function SchedulerForm() {
       console.error('Failed to join:', error)
       setStatus('error')
       setMessage(`❌ Failed to join meeting: ${error.message}`)
+    } finally {
+      joiningRef.current = false
     }
   }
 
@@ -76,19 +93,20 @@ export default function SchedulerForm() {
     e.preventDefault()
     
     if (!link) {
-      alert('Please enter a Google Meet link')
+      alert('Please enter a meeting link')
       return
     }
 
-    // Validate it's a Google Meet link
-    if (!link.includes('meet.google.com')) {
-      alert('Please enter a valid Google Meet link')
+    // Validate supported platforms: Google Meet, Zoom, Teams
+    const supported = /(meet\.google\.com|zoom\.us|app\.zoom\.us|teams\.microsoft\.com)/i
+    if (!supported.test(link)) {
+      alert('Please enter a valid Google Meet, Zoom, or Teams meeting link')
       return
     }
 
     // If time is specified and in the future, schedule it
     if (scheduledTime) {
-      const meetingTime = new Date(scheduledTime)
+      const meetingTime = scheduledTime
       const now = new Date()
       
       if (meetingTime <= now) {
@@ -100,8 +118,9 @@ export default function SchedulerForm() {
       const newMeeting = {
         id: Date.now().toString(),
         link,
-        time: scheduledTime,
-        joined: false
+        time: meetingTime.toISOString(),
+        joined: false,
+        processing_mode: processingMode
       }
       
       setScheduledMeetings(prev => [...prev, newMeeting])
@@ -110,7 +129,7 @@ export default function SchedulerForm() {
       
       // Clear form
       setLink('')
-      setScheduledTime('')
+      setScheduledTime(null)
       
       // Clear message after 3 seconds
       setTimeout(() => {
@@ -134,23 +153,55 @@ export default function SchedulerForm() {
 
       <form onSubmit={handleSubmit}>
         <div className="field">
-          <label>Google Meet Link</label>
+          <label>Meeting Link (Google Meet / Zoom / Teams)</label>
           <input 
             value={link} 
             onChange={(e) => setLink(e.target.value)} 
-            placeholder="https://meet.google.com/xxx-xxxx-xxx" 
+            placeholder="https://meet.google.com/... or https://zoom.us/... or https://teams.microsoft.com/..." 
             required 
             disabled={status === 'joining'}
           />
         </div>
 
+        {/* ── Processing Mode Toggle ── */}
+        <div className="field">
+          <label>Processing Mode</label>
+          <div className="mode-toggle-row">
+            <button
+              type="button"
+              className={`mode-card${processingMode === 'cloud' ? ' mode-card--active mode-card--cloud' : ''}`}
+              onClick={() => setProcessingMode('cloud')}
+            >
+              <span className="mode-card__icon">⚡</span>
+              <span className="mode-card__label">Fast Mode</span>
+              <span className="mode-card__sub">Cloud AI · Faster results</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-card${processingMode === 'local' ? ' mode-card--active mode-card--local' : ''}`}
+              onClick={() => setProcessingMode('local')}
+            >
+              <span className="mode-card__icon">🛡️</span>
+              <span className="mode-card__label">Private Mode</span>
+              <span className="mode-card__sub">Runs locally · Data stays on device</span>
+            </button>
+          </div>
+        </div>
+
         <div className="field">
           <label>Schedule Time (Optional)</label>
-          <input 
-            type="datetime-local"
-            value={scheduledTime} 
-            onChange={(e) => setScheduledTime(e.target.value)} 
+          <DatePicker
+            selected={scheduledTime}
+            onChange={(date) => setScheduledTime(date)}
+            showTimeSelect
+            timeFormat="HH:mm"
+            timeIntervals={15}
+            timeCaption="Time"
+            dateFormat="MMMM d, yyyy h:mm aa"
+            placeholderText="Click to select date and time"
             disabled={status === 'joining'}
+            className="datepicker-input"
+            minDate={new Date()}
           />
           <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
             Leave empty to join immediately, or set a time to join automatically later
@@ -176,7 +227,7 @@ export default function SchedulerForm() {
           {link && status !== 'joining' && (
             <button type="button" className="secondary" onClick={() => {
               setLink('')
-              setScheduledTime('')
+              setScheduledTime(null)
               setStatus('idle')
               setMessage('')
             }}>
@@ -241,7 +292,7 @@ export default function SchedulerForm() {
           <li>🎥 Camera automatically turned off</li>
           <li>🎤 Microphone automatically muted</li>
           <li>⏰ Schedule meetings for automatic joining</li>
-          <li>🤖 Uses keyboard shortcuts (Ctrl+D and Ctrl+E) for reliable control</li>
+          
         </ul>
       </div>
 
@@ -251,8 +302,8 @@ export default function SchedulerForm() {
           Browser paths are configured in the code. Current settings:
         </p>
         <ul style={{ fontSize: '11px', margin: '8px 0', paddingLeft: '20px', color: '#6b7280', fontFamily: 'monospace' }}>
-          <li>C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe</li>
-          <li>C:\Users\hp\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default</li>
+          <li>/usr/bin/brave-browser</li>
+          <li>/home/abhijith/.config/BraveSoftware/Brave-Browser/Default</li>
         </ul>
       </div>
     </div>

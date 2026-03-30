@@ -1,328 +1,290 @@
-# Complete Testing Commands - Quick Reference
+# Command Reference — Automated Meeting Assistant
 
-## 🚀 Quick Setup (One Command)
+Quick-reference commands for Linux (bash).
 
-```powershell
-.\setup-and-run.ps1
-```
+---
 
-This will:
-- ✅ Find Brave browser automatically
-- ✅ Install all dependencies
-- ✅ Configure paths automatically
-- ✅ Start both services
-- ✅ Verify everything works
+## 🚀 Start All Services
 
-## 🔍 Manual Setup & Testing
+```bash
+# Terminal 1 — Ollama
+ollama serve
 
-### Step 1: Find Browser Paths
-```powershell
-.\find-brave-path.ps1
-```
-**Expected:** Shows your Brave executable and profile paths
+# Terminal 2 — Local STT (Whisper)
+cd local-stt-service
+source ../venv/bin/activate
+uvicorn app:app --host 0.0.0.0 --port 6000
 
-### Step 2: Install Dependencies
-```powershell
-# Automation service
+# Terminal 3 — Hybrid STT
+cd stt-service
+node index.js
+
+# Terminal 4 — NLP Service
+cd nlp-service
+node index.js
+
+# Terminal 5 — Automation Service
 cd automation-service
-npm install
+node src/server.js
 
-# Frontend
-cd ..\frontend
-npm install
-cd ..
-```
-**Expected:** No errors, `node_modules/` folders created
-
-### Step 3: Start Services
-
-**Terminal 1:**
-```powershell
-cd automation-service
-npm start
-```
-**Expected output:**
-```
-═══════════════════════════════════════════════════════
-🚀 Automation Service Started
-═══════════════════════════════════════════════════════
-📡 Listening on: http://localhost:4001
-```
-
-**Terminal 2:**
-```powershell
+# Terminal 6 — Frontend
 cd frontend
 npm run dev
-```
-**Expected output:**
-```
-VITE v5.0.0  ready in XXX ms
-➜  Local:   http://localhost:5173/
-```
-
-## ✅ Verification Commands
-
-### 1. Check Automation Service Health
-```powershell
-curl http://localhost:4001/health
-```
-**Expected:**
-```json
-{"status":"ok","timestamp":"2026-01-14T..."}
-```
-
-### 2. Check Automation Service Info
-```powershell
-(Invoke-WebRequest http://localhost:4001 -UseBasicParsing).Content | ConvertFrom-Json
-```
-**Expected:**
-```json
-{
-  "status": "running",
-  "service": "automation-service",
-  "timestamp": "2026-01-14T..."
-}
-```
-
-### 3. Check Frontend
-```powershell
-(Invoke-WebRequest http://localhost:5173 -UseBasicParsing).StatusCode
-```
-**Expected:** `200`
-
-### 4. Run Full Test Suite
-```powershell
-.\test.ps1
-```
-**Expected:** All green checkmarks ✅
-
-### 5. Test API Endpoint Directly
-```powershell
-# Replace paths with your actual paths from find-brave-path.ps1
-$body = @{
-    url = "https://meet.google.com/test-xxxx-xxx"
-    braveExecutable = "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-    userDataDir = "C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default"
-} | ConvertTo-Json
-
-Invoke-WebRequest -Uri "http://localhost:4001/api/meetings" -Method POST -ContentType "application/json" -Body $body
-```
-**Expected:**
-```json
-{
-  "started": true,
-  "pid": 12345,
-  "log": "logs\\join-1737123456789-12345.log"
-}
-```
-**And:** Brave browser window opens automatically
-
-## 🧪 End-to-End Test
-
-### Via Browser UI
-1. Open browser: `http://localhost:5173`
-2. Paste link: `https://meet.google.com/xxx-xxxx-xxx`
-3. Click: "Join Meeting Now"
-4. **Expected:**
-   - Status shows "Joining meeting..."
-   - Success message appears
-   - Brave browser opens
-   - Navigates to meeting
-   - Camera/mic turn off
-   - Clicks "Ask to join"
-
-### Via PowerShell
-```powershell
-# Open the frontend
-Start-Process "http://localhost:5173"
-```
-
-## 📊 Monitoring Commands
-
-### Check if services are running
-```powershell
-# Check processes
-Get-Process | Where-Object {$_.ProcessName -eq "node"} | Select-Object ProcessName, Id, StartTime
-
-# Check ports
-Get-NetTCPConnection -LocalPort 4001,5173 | Select-Object LocalPort, State
-```
-
-### View logs
-```powershell
-# List all log files
-Get-ChildItem automation-service\logs
-
-# View most recent log
-Get-Content (Get-ChildItem automation-service\logs -Filter "join-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-
-# Watch logs in real-time
-Get-Content (Get-ChildItem automation-service\logs -Filter "join-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName -Wait
-```
-
-### Check request logs
-```powershell
-Get-Content automation-service\logs\requests.log -Tail 10
-```
-
-## 🐛 Troubleshooting Commands
-
-### Issue: Port already in use
-```powershell
-# Find what's using port 4001
-Get-NetTCPConnection -LocalPort 4001 | Select-Object OwningProcess | Get-Process
-
-# Find what's using port 5173
-Get-NetTCPConnection -LocalPort 5173 | Select-Object OwningProcess | Get-Process
-
-# Kill process by ID
-Stop-Process -Id <PID>
-```
-
-### Issue: Can't find Brave
-```powershell
-# Check if Brave exists
-Test-Path "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-
-# Try to open Brave manually
-& "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-
-# Search for Brave
-Get-ChildItem "C:\Program Files" -Recurse -Filter "brave.exe" -ErrorAction SilentlyContinue
-```
-
-### Issue: Configuration not working
-```powershell
-# Check current configuration in SchedulerForm.jsx
-Select-String -Path frontend\src\pages\SchedulerForm.jsx -Pattern "braveExecutable|userDataDir"
-```
-
-### Issue: Services won't start
-```powershell
-# Check for errors in automation service
-cd automation-service
-node src\server.js
-
-# Check for errors in frontend
-cd frontend
-npm run dev
-```
-
-## 🔄 Restart Commands
-
-### Stop all services
-```powershell
-# Stop all Node processes (careful - stops ALL Node processes)
-Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
-
-# Or stop specific jobs if using setup-and-run.ps1
-Get-Job | Stop-Job | Remove-Job
-```
-
-### Restart automation service
-```powershell
-# Stop existing
-Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object {$_.Path -like "*automation-service*"} | Stop-Process
-
-# Start new
-cd automation-service
-npm start
-```
-
-### Restart frontend
-```powershell
-# In the terminal running frontend, press Ctrl+C, then:
-npm run dev
-```
-
-## 🧹 Cleanup Commands
-
-### Clear logs
-```powershell
-Remove-Item automation-service\logs\*.log -Force
-Remove-Item logs\*.log -Force -ErrorAction SilentlyContinue
-```
-
-### Clear node_modules (if reinstalling)
-```powershell
-Remove-Item automation-service\node_modules -Recurse -Force
-Remove-Item frontend\node_modules -Recurse -Force
-```
-
-### Full reset
-```powershell
-# Stop services
-Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
-
-# Clear dependencies
-Remove-Item automation-service\node_modules -Recurse -Force
-Remove-Item frontend\node_modules -Recurse -Force
-
-# Clear logs
-Remove-Item automation-service\logs\*.log -Force -ErrorAction SilentlyContinue
-
-# Reinstall
-cd automation-service; npm install; cd ..
-cd frontend; npm install; cd ..
-```
-
-## 📈 Performance Testing
-
-### Measure API response time
-```powershell
-Measure-Command {
-    Invoke-WebRequest -Uri "http://localhost:4001/health" -UseBasicParsing
-}
-```
-**Expected:** < 100ms
-
-### Check memory usage
-```powershell
-Get-Process -Name node | Select-Object ProcessName, Id, @{Name="Memory(MB)";Expression={[math]::Round($_.WS/1MB,2)}}
-```
-
-## ✅ Success Checklist
-
-Run these commands in order to verify everything works:
-
-```powershell
-# 1. Health check
-Write-Host "1. Automation Service Health:" -ForegroundColor Yellow
-(Invoke-WebRequest http://localhost:4001/health -UseBasicParsing).Content
-
-# 2. Frontend check
-Write-Host "`n2. Frontend Status:" -ForegroundColor Yellow
-(Invoke-WebRequest http://localhost:5173 -UseBasicParsing).StatusCode
-
-# 3. Run test suite
-Write-Host "`n3. Running Tests:" -ForegroundColor Yellow
-.\test.ps1
-
-# 4. Check processes
-Write-Host "`n4. Node Processes:" -ForegroundColor Yellow
-Get-Process -Name node | Select-Object ProcessName, Id
-
-# 5. Check ports
-Write-Host "`n5. Active Ports:" -ForegroundColor Yellow
-Get-NetTCPConnection -LocalPort 4001,5173 | Select-Object LocalPort, State
-
-Write-Host "`n✅ If all above passed, you're ready to go!" -ForegroundColor Green
-Write-Host "Open http://localhost:5173 and test with a real meeting link" -ForegroundColor White
-```
-
-## 🎯 One-Liner Commands
-
-```powershell
-# Quick health check
-(Invoke-WebRequest http://localhost:4001/health -UseBasicParsing).Content; (Invoke-WebRequest http://localhost:5173 -UseBasicParsing).StatusCode
-
-# View latest log
-Get-Content (Get-ChildItem automation-service\logs -Filter "*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName -Tail 20
-
-# Check all services status
-@{Automation=(Invoke-WebRequest http://localhost:4001/health -UseBasicParsing -ErrorAction SilentlyContinue).StatusCode; Frontend=(Invoke-WebRequest http://localhost:5173 -UseBasicParsing -ErrorAction SilentlyContinue).StatusCode}
 ```
 
 ---
 
-**Pro Tip:** Bookmark this file for quick reference! 🔖
+## ✅ Health Checks
+
+```bash
+# Ollama
+curl -s http://localhost:11434/api/tags | python3 -m json.tool
+
+# NLP Service
+curl -s http://localhost:7000/
+
+# Automation Service
+curl -s http://localhost:4001/health
+
+# Hybrid STT Service
+curl -s http://localhost:5002/
+
+# Frontend
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
+
+# All at once
+echo "Ollama:    $(curl -s -o /dev/null -w '%{http_code}' http://localhost:11434/api/tags)"
+echo "NLP:       $(curl -s -o /dev/null -w '%{http_code}' http://localhost:7000/)"
+echo "Automation:$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4001/health)"
+echo "STT:       $(curl -s -o /dev/null -w '%{http_code}' http://localhost:5002/)"
+echo "Frontend:  $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000)"
+```
+
+---
+
+## 🧪 Join a Meeting (API)
+
+```bash
+curl -X POST http://localhost:4001/api/meetings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://meet.google.com/xxx-xxxx-xxx",
+    "braveExecutable": "/usr/bin/brave-browser",
+    "userDataDir": "/home/YOUR_USER/.config/BraveSoftware/Brave-Browser/Default"
+  }'
+```
+
+---
+
+## 📝 Transcribe a Meeting (API)
+
+```bash
+# Via hybrid STT service (AssemblyAI with local fallback)
+curl -X POST http://localhost:5002/api/stt/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "meetingId": "meeting-123456",
+    "audioFilePath": "/absolute/path/to/recording.wav"
+  }'
+```
+
+---
+
+## 🧠 Summarize a Transcript (API)
+
+```bash
+curl -X POST http://localhost:7000/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"transcript": "Hello everyone, welcome to the meeting..."}'
+```
+
+---
+
+## 📓 Notion — Create Meeting Page
+
+```bash
+curl -X POST http://localhost:7000/notion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "meeting_date": "2026-03-01",
+    "summary": "The team discussed Q1 goals...",
+    "action_items": [
+      {"task": "Review budget", "deadline": "2026-03-10"}
+    ]
+  }'
+```
+
+---
+
+## 📅 Calendar — Create Events
+
+```bash
+curl -X POST http://localhost:7000/calendar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action_items": [
+      {"calendar_event_title": "Review budget", "calendar_event_date": "2026-03-10"}
+    ]
+  }'
+```
+
+---
+
+## 🐍 Offline Pipeline
+
+```bash
+source venv/bin/activate
+
+# Basic usage
+python scripts/run_offline_test.py path/to/recording.wav
+
+# With options
+python scripts/run_offline_test.py recording.wav \
+  --meeting-id "standup-2026-03-01" \
+  --whisper-model small \
+  --ollama-model phi \
+  --output-dir ./results
+
+# Debug mode
+python scripts/run_offline_test.py recording.wav --log-level DEBUG
+```
+
+---
+
+## 🧪 Run Tests
+
+```bash
+source venv/bin/activate
+
+# All tests
+pytest -v
+
+# Specific test class
+pytest tests/test_pipeline.py::TestTranscriber -v
+pytest tests/test_pipeline.py::TestSummarizer -v
+pytest tests/test_pipeline.py::TestStorage -v
+pytest tests/test_pipeline.py::TestPipeline -v
+```
+
+---
+
+## 🔍 Monitoring
+
+```bash
+# Check which ports are in use
+ss -tlnp | grep -E '3000|4001|5002|6000|7000|11434'
+
+# View latest meeting log
+ls -t logs/join-*.log 2>/dev/null | head -1 | xargs cat
+
+# View latest recording info
+ls -lt logs/recordings/ | head -5
+
+# View latest NLP analysis
+ls -t nlp-service/transcripts/*.json 2>/dev/null | head -1 | xargs python3 -m json.tool
+
+# Check Node.js processes
+pgrep -a node
+
+# Check PulseAudio sources
+pactl list short sources
+```
+
+---
+
+## 🎵 Audio Verification
+
+```bash
+# Check recording format
+ffprobe logs/recordings/meeting-*.wav 2>&1 | grep -E "Stream|Duration"
+
+# Expected output:
+# Stream #0:0: Audio: pcm_s16le, 16000 Hz, mono, s16, 256 kb/s
+
+# Convert audio to Whisper format manually
+ffmpeg -i input.wav -ar 16000 -ac 1 -c:a pcm_s16le output.wav
+```
+
+---
+
+## 🛑 Stop Services
+
+```bash
+# Kill by port
+lsof -ti:3000 | xargs kill -9   # Frontend
+lsof -ti:4001 | xargs kill -9   # Automation
+lsof -ti:5002 | xargs kill -9   # STT
+lsof -ti:6000 | xargs kill -9   # Local STT
+lsof -ti:7000 | xargs kill -9   # NLP
+
+# Kill all Node.js processes
+pkill -f "node"
+
+# Kill Ollama
+pkill ollama
+```
+
+---
+
+## 🧹 Cleanup
+
+```bash
+# Clear logs
+rm -f logs/join-*.log logs/requests.log
+rm -f automation-service/logs/*.log
+
+# Clear recordings
+rm -f logs/recordings/*.wav
+
+# Clear transcripts
+rm -f local-stt-service/transcripts/*.txt
+rm -f nlp-service/transcripts/*.json
+rm -f stt-service/transcripts/*
+
+# Clear output
+rm -f output/*.json
+
+# Reinstall dependencies
+rm -rf automation-service/node_modules && cd automation-service && npm install && cd ..
+rm -rf stt-service/node_modules && cd stt-service && npm install && cd ..
+rm -rf nlp-service/node_modules && cd nlp-service && npm install && cd ..
+rm -rf frontend/node_modules && cd frontend && npm install && cd ..
+```
+
+---
+
+## 🔧 Ollama Management
+
+```bash
+# Start Ollama
+ollama serve
+
+# List installed models
+ollama list
+
+# Pull models
+ollama pull phi
+ollama pull mistral
+
+# Test generation
+curl -s http://localhost:11434/api/generate \
+  -d '{"model": "phi", "prompt": "Hello", "stream": false}' | python3 -m json.tool
+
+# Delete a model
+ollama rm phi
+```
+
+---
+
+## 📊 Performance
+
+```bash
+# Measure API response time
+time curl -s http://localhost:4001/health > /dev/null
+
+# Check memory usage of Node processes
+ps aux | grep node | grep -v grep | awk '{print $11, $6/1024 "MB"}'
+
+# Check disk usage of recordings
+du -sh logs/recordings/
+```

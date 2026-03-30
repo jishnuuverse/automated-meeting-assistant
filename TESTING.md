@@ -1,302 +1,290 @@
-# Automated Meeting Assistant - Testing Guide
+# Testing Guide — Automated Meeting Assistant
 
-This guide shows you how to test that everything is working properly.
+---
 
-## Prerequisites Check
+## Prerequisites
 
-Run this PowerShell script to find your Brave browser paths:
-```powershell
-.\find-brave-path.ps1
+Before running tests, ensure:
+
+1. **Python virtual environment** is activated:
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. **Ollama** is running with a model pulled:
+   ```bash
+   ollama serve &
+   ollama pull phi
+   ```
+
+3. **ffmpeg** is installed:
+   ```bash
+   ffmpeg -version
+   ```
+
+4. **Test audio file** exists in `tests/recordings/`:
+   ```bash
+   ls tests/recordings/*.wav
+   ```
+
+---
+
+## Running the Test Suite
+
+```bash
+source venv/bin/activate
+
+# Run all tests
+pytest
+
+# Verbose output
+pytest -v
+
+# With short traceback
+pytest -v --tb=short
 ```
 
-Copy the output and update `frontend\src\pages\SchedulerForm.jsx` (lines 27-28).
+### Run Specific Test Classes
 
-## Starting the Services
-
-### Terminal 1: Start Automation Service
-```powershell
-cd automation-service
-npm install  # First time only
-npm start
+```bash
+pytest tests/test_pipeline.py::TestTranscriber -v
+pytest tests/test_pipeline.py::TestSummarizer -v
+pytest tests/test_pipeline.py::TestStorage -v
+pytest tests/test_pipeline.py::TestPipeline -v
 ```
 
-**Expected output:**
-```
-═══════════════════════════════════════════════════════
-🚀 Automation Service Started
-═══════════════════════════════════════════════════════
-📡 Listening on: http://localhost:4001
-📁 Logs directory: c:\programs\automated-meeting-assistant\automation-service\logs
-🕐 Started at: 2026-01-14T...
-═══════════════════════════════════════════════════════
+### Run Tests with Coverage
 
-Waiting for requests...
+```bash
+pytest --cov=app --cov-report=term-missing
 ```
 
-### Terminal 2: Start Frontend
-```powershell
-cd frontend
-npm install  # First time only
-npm run dev
+---
+
+## Test Coverage
+
+| Test Class | # Tests | What It Validates |
+|---|---|---|
+| `TestTranscriber` | 3 | Whisper transcription output, metadata keys, file-not-found handling |
+| `TestSummarizer` | 4 | LLM response keys, summary length, empty/short input validation |
+| `TestStorage` | 3 | JSON save/load round-trip, directory creation, missing file errors |
+| `TestPipeline` | 3 | Full end-to-end pipeline, no-save mode, JSON serialization |
+
+### Test Configuration
+
+Defined in `pytest.ini`:
+
+```ini
+[pytest]
+testpaths = tests
+timeout = 300
+addopts = -v --tb=short
+markers =
+    slow: marks tests as slow (deselect with '-m "not slow"')
 ```
 
-**Expected output:**
-```
-  VITE v5.0.0  ready in XXX ms
+---
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-```
+## Service Health Verification
 
-## Running Tests
+### Quick Check — All Services
 
-### Test 1: Run Automated Test Suite
-```powershell
-.\test.ps1
-```
+```bash
+echo "=== Service Health Check ==="
 
-This will check:
-- ✅ Automation service is running
-- ✅ Frontend is running
-- ✅ All required files exist
-- ✅ Dependencies are installed
+# Ollama
+curl -s http://localhost:11434/api/tags > /dev/null 2>&1 \
+  && echo "✅ Ollama (11434)" || echo "❌ Ollama (11434)"
 
-**Expected output:** All green checkmarks
+# Local STT
+curl -s http://localhost:6000/docs > /dev/null 2>&1 \
+  && echo "✅ Local STT (6000)" || echo "❌ Local STT (6000)"
 
-### Test 2: Check Automation Service Health
-```powershell
-curl http://localhost:4001/health
-```
+# Hybrid STT
+curl -s http://localhost:5002/ > /dev/null 2>&1 \
+  && echo "✅ Hybrid STT (5002)" || echo "❌ Hybrid STT (5002)"
 
-**Expected response:**
-```json
-{"status":"ok","timestamp":"2026-01-14T10:30:00.000Z"}
-```
+# NLP Service
+curl -s http://localhost:7000/ > /dev/null 2>&1 \
+  && echo "✅ NLP Service (7000)" || echo "❌ NLP Service (7000)"
 
-### Test 3: Check Automation Service Info
-```powershell
-curl http://localhost:4001
+# Automation Service
+curl -s http://localhost:4001/health > /dev/null 2>&1 \
+  && echo "✅ Automation (4001)" || echo "❌ Automation (4001)"
+
+# Frontend
+curl -s http://localhost:3000 > /dev/null 2>&1 \
+  && echo "✅ Frontend (3000)" || echo "❌ Frontend (3000)"
 ```
 
-**Expected response:**
-```json
-{
-  "status":"running",
-  "service":"automation-service",
-  "timestamp":"2026-01-14T10:30:00.000Z"
-}
+### Individual Service Checks
+
+```bash
+# Automation service health
+curl -s http://localhost:4001/health | python3 -m json.tool
+
+# NLP service info
+curl -s http://localhost:7000/ | python3 -m json.tool
+
+# Hybrid STT info (includes AssemblyAI status)
+curl -s http://localhost:5002/ | python3 -m json.tool
+
+# Ollama models
+curl -s http://localhost:11434/api/tags | python3 -m json.tool
 ```
 
-### Test 4: Test API Endpoint Directly
+---
 
-**Important:** Update the paths below to match your system (use output from `find-brave-path.ps1`)
+## API Endpoint Tests
 
-```powershell
-$body = @{
-    url = "https://meet.google.com/test-xxxx-xxx"
-    braveExecutable = "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-    userDataDir = "C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default"
-} | ConvertTo-Json
+### Test Meeting Join
 
-Invoke-WebRequest -Uri "http://localhost:4001/api/meetings" -Method POST -ContentType "application/json" -Body $body
+```bash
+curl -X POST http://localhost:4001/api/meetings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://meet.google.com/test-xxxx-xxx",
+    "braveExecutable": "/usr/bin/brave-browser",
+    "userDataDir": "/home/YOUR_USER/.config/BraveSoftware/Brave-Browser/Default"
+  }' | python3 -m json.tool
 ```
 
-**Expected response:**
-```json
-{
-  "started": true,
-  "pid": 12345,
-  "log": "logs\\join-1737123456789-12345.log"
-}
+**Expected:** `{"started": true, "pid": ..., "log": "..."}`
+
+### Test Hybrid Transcription
+
+```bash
+curl -X POST http://localhost:5002/api/stt/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "meetingId": "test-meeting-001",
+    "audioFilePath": "/absolute/path/to/test.wav"
+  }' | python3 -m json.tool
 ```
 
-**Expected behavior:** A Brave browser window should open
+**Expected:** `{"success": true, "source": "assemblyai|local", "transcript": "...", "summary": {...}}`
 
-### Test 5: Check Frontend is Accessible
-```powershell
-curl http://localhost:5173
+### Test NLP Summarization
+
+```bash
+curl -X POST http://localhost:7000/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"transcript": "Hello everyone. Today we need to discuss the Q1 roadmap. John will prepare the budget by March 10. Sarah needs to finalize the design mockups by next Monday."}' \
+  | python3 -m json.tool
 ```
 
-Should return HTML content (status 200).
+**Expected:** `{"success": true, "result": {"cleaned_transcript": "...", "summary": "...", "action_items": [...]}}`
 
-### Test 6: Full End-to-End Test
+### Test Notion Integration
 
-1. Open browser and navigate to: `http://localhost:5173`
-2. You should see "Quick Join Meeting" page
-3. Paste a Google Meet link: `https://meet.google.com/xxx-xxxx-xxx`
-4. Click "Join Meeting Now"
-5. Expected behavior:
-   - Status changes to "Joining meeting..."
-   - After 1-2 seconds, you see "✅ Successfully joined!"
-   - A new Brave browser window opens
-   - The browser navigates to the Google Meet link
-   - Camera and microphone are automatically turned off
-   - "Ask to join" button is clicked automatically
-
-### Test 7: Check Logs
-
-After joining a meeting, check the logs:
-
-```powershell
-# List all log files
-Get-ChildItem automation-service\logs
-
-# View the most recent log file
-Get-Content (Get-ChildItem automation-service\logs | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+```bash
+curl -X POST http://localhost:7000/notion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "meeting_date": "2026-03-01",
+    "summary": "Test meeting summary for Notion integration.",
+    "action_items": [{"task": "Test task", "deadline": "2026-03-10"}]
+  }' | python3 -m json.tool
 ```
 
-**Expected log content:**
-```
-=== spawn 2026-01-14T... pid=12345 args=...
-🔗 Joining meeting: https://meet.google.com/xxx-xxxx-xxx
-📁 Profile: C:\Users\...
-🌐 Browser: C:\Program Files\BraveSoftware\...
-✅ Join flow executed
-=== exit code=0 signal=null at ...
-```
+### Test Calendar Integration
 
-## Troubleshooting Tests
-
-### Issue: Automation service won't start
-
-**Test:**
-```powershell
-cd automation-service
-node src\server.js
+```bash
+curl -X POST http://localhost:7000/calendar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action_items": [
+      {"calendar_event_title": "Test deadline", "calendar_event_date": "2026-03-10"}
+    ]
+  }' | python3 -m json.tool
 ```
 
-**Common causes:**
-- Port 4001 already in use: `Get-NetTCPConnection -LocalPort 4001`
-- Missing dependencies: Run `npm install`
+---
 
-### Issue: Frontend won't start
+## End-to-End Test (Web UI)
 
-**Test:**
-```powershell
-cd frontend
-npm run dev
+1. Open **http://localhost:3000**
+2. Paste a Google Meet link
+3. Click **"Join Now"**
+4. **Expected behavior:**
+   - Status shows "Joining meeting..."
+   - Brave browser opens
+   - Camera and mic are automatically disabled
+   - "Ask to join" is clicked
+5. After meeting ends:
+   - Recording stops
+   - Transcription runs (AssemblyAI or local Whisper)
+   - Summarization runs (LeMUR or Ollama)
+   - Results pushed to Notion/Calendar (if configured)
+   - Transcript and summary visible in the frontend
+
+---
+
+## Verify Recordings
+
+```bash
+# List recent recordings
+ls -lt logs/recordings/ | head -5
+
+# Check format of a recording
+ffprobe logs/recordings/meeting-*.wav 2>&1 | grep -E "Stream|Duration"
+
+# Expected:
+# Stream #0:0: Audio: pcm_s16le, 16000 Hz, mono, s16, 256 kb/s
 ```
 
-**Common causes:**
-- Port 5173 already in use
-- Missing dependencies: Run `npm install`
+---
 
-### Issue: Browser doesn't open
+## Check Logs
 
-**Test if Brave is accessible:**
-```powershell
-# Test 1: Check if Brave exists
-Test-Path "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+```bash
+# Latest meeting join log
+ls -t logs/join-*.log 2>/dev/null | head -1 | xargs cat
 
-# Test 2: Try to open Brave manually
-& "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+# Latest NLP analysis
+ls -t nlp-service/transcripts/*.json 2>/dev/null | head -1 | xargs python3 -m json.tool
+
+# Request log
+tail -20 logs/requests.log
 ```
 
-**Common causes:**
-- Wrong path in SchedulerForm.jsx
-- Brave not installed
-- Profile path incorrect
+---
 
-### Issue: "Missing url/userDataDir/braveExecutable"
+## Performance Testing
 
-**Test the API with verbose output:**
-```powershell
-$body = @{
-    url = "https://meet.google.com/test"
-    braveExecutable = "YOUR_PATH_HERE"
-    userDataDir = "YOUR_PROFILE_HERE"
-} | ConvertTo-Json
+```bash
+# API response time
+time curl -s http://localhost:4001/health > /dev/null
 
-Write-Host "Sending request with body:"
-Write-Host $body
-
-try {
-    $response = Invoke-WebRequest -Uri "http://localhost:4001/api/meetings" -Method POST -ContentType "application/json" -Body $body
-    Write-Host "Response:"
-    $response.Content
-} catch {
-    Write-Host "Error:"
-    $_.Exception.Message
-    Write-Host "Response:"
-    $_.Exception.Response
-}
+# Node process memory
+ps aux | grep "node" | grep -v grep | awk '{printf "%-40s %s MB\n", $11, $6/1024}'
 ```
 
-### Issue: Browser opens but doesn't join
+---
 
-**Check if Google is logged in:**
-1. Open Brave manually with your profile
-2. Go to google.com
-3. Verify you're logged in
-4. Try joining a meeting manually
+## Troubleshooting Test Failures
 
-**Check automation logs:**
-```powershell
-Get-Content automation-service\logs\join-*.log | Select-Object -Last 50
+### Tests timeout (> 300s)
+
+- Whisper model may be downloading on first run
+- Pre-download: `python3 -c "import whisper; whisper.load_model('base')"`
+- Or use a smaller model: `export WHISPER_MODEL_NAME=tiny`
+
+### Ollama connection errors
+
+```bash
+ollama serve &
+curl http://localhost:11434/api/tags
+ollama pull phi
 ```
 
-## Quick Verification Commands
+### No test audio files
 
-Copy and paste these to quickly check everything:
+Place a `.wav` file in `tests/recordings/`. Any short audio clip will work.
 
-```powershell
-# One-liner to check all services
-Write-Host "Automation Service:" -ForegroundColor Yellow; (Invoke-WebRequest http://localhost:4001/health -UseBasicParsing).Content; Write-Host "`nFrontend:" -ForegroundColor Yellow; (Invoke-WebRequest http://localhost:5173 -UseBasicParsing).StatusCode
+### Python import errors
+
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
 ```
-
-```powershell
-# One-liner to check if processes are running
-Get-Process | Where-Object {$_.ProcessName -like "*node*"} | Select-Object ProcessName, Id, StartTime
-```
-
-```powershell
-# One-liner to see recent logs
-Get-ChildItem automation-service\logs -Filter "join-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content
-```
-
-## Success Criteria
-
-✅ **Everything is working when:**
-
-1. ✅ Test script (`.\test.ps1`) shows all green checkmarks
-2. ✅ Both services start without errors
-3. ✅ Frontend loads at http://localhost:5173
-4. ✅ Pasting a link and clicking "Join Meeting Now" opens Brave
-5. ✅ Browser automatically navigates to the meeting
-6. ✅ Camera and mic are turned off automatically
-7. ✅ "Ask to join" is clicked automatically
-8. ✅ Logs show successful execution
-9. ✅ No errors in browser console (F12)
-10. ✅ No errors in automation service terminal
-
-## Performance Tests
-
-### Test Response Time
-```powershell
-Measure-Command {
-    Invoke-WebRequest -Uri "http://localhost:4001/health" -UseBasicParsing
-}
-```
-Should be < 100ms
-
-### Test Meeting Join Time
-```powershell
-$start = Get-Date
-# Click "Join Meeting Now" in browser
-# Wait for browser to open and navigate
-$end = Get-Date
-$duration = $end - $start
-Write-Host "Join time: $($duration.TotalSeconds) seconds"
-```
-Should be < 5 seconds
-
-## Next Steps After Successful Testing
-
-Once all tests pass:
-1. ✅ Update the browser paths to match your system
-2. ✅ Test with a real Google Meet link
-3. ✅ Verify the meeting joins successfully
-4. ✅ Check that camera/mic are off
-5. ✅ Confirm "Ask to join" works
-
-Ready to use! 🎉

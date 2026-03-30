@@ -1,0 +1,4 @@
+# Place .wav recording files here for offline pipeline testing.
+# Example: sample_meeting.wav
+#
+# These files are gitignored to avoid bloating the repository.

@@ -1,134 +1,262 @@
-# Setup Guide for Automated Meeting Assistant
+# Setup Guide — Automated Meeting Assistant
+
+Complete setup instructions for Linux (Ubuntu 20.04+).
+
+---
 
 ## Quick Start
 
-### 1. Install Dependencies
+```bash
+# 1. Install dependencies
+cd automation-service && npm install && npx playwright install chromium && cd ..
+cd stt-service && npm install && cd ..
+cd nlp-service && npm install && cd ..
+cd frontend && npm install && cd ..
+python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 
-**Automation Service:**
-```powershell
+# 2. Configure environment (see sections below)
+
+# 3. Start all services (6 terminals)
+ollama serve                                                        # Terminal 1
+cd local-stt-service && source ../venv/bin/activate && uvicorn app:app --host 0.0.0.0 --port 6000  # Terminal 2
+cd stt-service && node index.js                                     # Terminal 3
+cd nlp-service && node index.js                                     # Terminal 4
+cd automation-service && node src/server.js                         # Terminal 5
+cd frontend && npm run dev                                          # Terminal 6
+
+# 4. Open http://localhost:3000 and paste a Google Meet link!
+```
+
+---
+
+## Detailed Steps
+
+### 1. System Prerequisites
+
+```bash
+# Verify required software
+node --version       # v18+
+python3 --version    # 3.10+
+ffmpeg -version
+brave-browser --version
+ollama --version
+which xvfb-run
+
+# Install anything missing
+sudo apt update && sudo apt install -y ffmpeg pulseaudio xvfb python3-pip python3-venv curl
+```
+
+### 2. Install Node.js Dependencies
+
+```bash
+# Automation service (browser automation + recording)
 cd automation-service
 npm install
-```
+npx playwright install chromium
+cd ..
 
-**Frontend:**
-```powershell
+# Hybrid STT service (AssemblyAI + local fallback)
+cd stt-service
+npm install
+cd ..
+
+# NLP service (summarization + Notion/Calendar integrations)
+cd nlp-service
+npm install
+cd ..
+
+# Frontend (React web UI)
 cd frontend
 npm install
+cd ..
 ```
 
-### 2. Configure Brave Browser Paths
+### 3. Install Python Dependencies
 
-You need to update the browser paths in the frontend code to match your system.
-
-**Edit:** `frontend\src\pages\SchedulerForm.jsx` (lines 27-28)
-
-Replace these default paths:
-```javascript
-const braveExecutable = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'
-const userDataDir = 'C:\\Users\\YourUsername\\AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data\\Profile 1'
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**To find your paths:**
+### 4. Pull an Ollama Model
 
-1. **Brave Executable**: Usually at `C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe`
-   
-2. **User Profile**: 
-   - Type `brave://version` in Brave browser
-   - Look for "Profile Path"
-   - Example: `C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data\Profile 1`
-
-### 3. Start the Services
-
-**Terminal 1 - Start Automation Service:**
-```powershell
-cd automation-service
-npm start
+```bash
+ollama serve &
+ollama pull phi          # Lightweight, fast
+# OR: ollama pull mistral  # More capable, needs more RAM
 ```
 
-You should see:
-```
-🚀 Automation Service Started
-📡 Listening on: http://localhost:4001
-```
+### 5. Configure Brave Browser
 
-**Terminal 2 - Start Frontend:**
-```powershell
-cd frontend
-npm run dev
-```
+Find your Brave browser paths:
 
-You should see:
-```
-Local: http://localhost:5173/
+```bash
+# Executable path
+which brave-browser
+# Usually: /usr/bin/brave-browser
+
+# Profile path
+ls ~/.config/BraveSoftware/Brave-Browser/
+# Usually: ~/.config/BraveSoftware/Brave-Browser/Default
 ```
 
-### 4. Test the Application
+> **Important:** You must be logged into Google in Brave before running the automation. The service uses your existing browser profile for authentication.
 
-1. Open your browser and go to `http://localhost:5173`
-2. Paste a Google Meet link (e.g., `https://meet.google.com/xxx-xxxx-xxx`)
-3. Click "Join Meeting Now"
-4. A Brave browser window should open and automatically join the meeting
+### 6. Verify PulseAudio
 
-## Testing Commands
+```bash
+# Check PulseAudio is running
+pulseaudio --check && echo "Running" || (echo "Starting..." && pulseaudio --start)
 
-### Check if Automation Service is Running
-```powershell
-curl http://localhost:4001/health
+# Find your monitor source
+pactl list short sources
+# Look for: alsa_output.pci-0000_00_05.0.analog-stereo.monitor
+
+# If your source name is different, update it in:
+# automation-service/src/joinMeeting.js (search for "monitor")
 ```
 
-Expected response:
-```json
-{"status":"ok","timestamp":"2026-01-14T..."}
+---
+
+## Environment Configuration
+
+### AssemblyAI (Cloud STT — Optional but Recommended)
+
+Create `stt-service/.env`:
+
+```env
+ASSEMBLYAI_API_KEY=your_assemblyai_api_key_here
 ```
 
-### Check if Frontend is Running
-```powershell
-curl http://localhost:5173
+Get an API key at [assemblyai.com](https://www.assemblyai.com/). Without this, the system falls back to local Whisper + Ollama.
+
+### Notion Integration (Optional)
+
+Create or update `nlp-service/.env`:
+
+```env
+NOTION_API_KEY=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NOTION_DATABASE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-Should return HTML content.
+**Setup steps:**
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations) → Create new integration.
+2. Copy the **Internal Integration Token** → set as `NOTION_API_KEY`.
+3. Create a database in Notion (or use existing) with a **Title** property and a **Date** property called "Meeting Date".
+4. Share the database with your integration (click "..." → "Add connections" → select your integration).
+5. Copy the database ID from the URL → set as `NOTION_DATABASE_ID`.
 
-### Test Join Meeting API Directly
-```powershell
-Invoke-WebRequest -Uri "http://localhost:4001/api/meetings" -Method POST -ContentType "application/json" -Body '{"url":"https://meet.google.com/test-link","braveExecutable":"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe","userDataDir":"C:\\Users\\YourName\\AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data\\Profile 1"}'
+### Google Calendar Integration (Optional)
+
+Add to `nlp-service/.env`:
+
+```env
+GOOGLE_CLIENT_EMAIL=meeting-bot@your-project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...\n-----END PRIVATE KEY-----\n"
+GOOGLE_CALENDAR_ID=your-email@gmail.com
 ```
 
-Expected response:
-```json
-{"started":true,"pid":12345,"log":"logs\\join-...log"}
+**Setup steps:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → Create or select a project.
+2. Enable the **Google Calendar API**.
+3. Create a **Service Account** → Generate a JSON key file.
+4. From the JSON key file, copy `client_email` → `GOOGLE_CLIENT_EMAIL` and `private_key` → `GOOGLE_PRIVATE_KEY`.
+5. In Google Calendar settings, share your calendar with the service account email and grant **"Make changes to events"** permission.
+6. Set `GOOGLE_CALENDAR_ID` to your calendar's email address (e.g., `your-email@gmail.com`).
+
+---
+
+## Starting the Services
+
+Each service needs its own terminal. Start them in this order:
+
+| # | Terminal | Command | Verify |
+|---|---|---|---|
+| 1 | Ollama | `ollama serve` | `curl http://localhost:11434/api/tags` |
+| 2 | Local STT | `cd local-stt-service && source ../venv/bin/activate && uvicorn app:app --host 0.0.0.0 --port 6000` | First `/transcribe` call loads model |
+| 3 | Hybrid STT | `cd stt-service && node index.js` | Console: `STT service (hybrid) running on port 5002` |
+| 4 | NLP | `cd nlp-service && node index.js` | `curl http://localhost:7000/` |
+| 5 | Automation | `cd automation-service && node src/server.js` | `curl http://localhost:4001/health` |
+| 6 | Frontend | `cd frontend && npm run dev` | Open http://localhost:3000 |
+
+---
+
+## Verification
+
+```bash
+# Check all services
+curl -s http://localhost:11434/api/tags | head -c 100   # Ollama
+curl -s http://localhost:7000/                           # NLP
+curl -s http://localhost:4001/health                     # Automation
+curl -s http://localhost:3000 | head -c 100              # Frontend
 ```
+
+---
+
+## Usage
+
+### Join a Meeting (Web UI)
+
+1. Open **http://localhost:3000** in your browser.
+2. Paste a Google Meet link (e.g., `https://meet.google.com/xxx-xxxx-xxx`).
+3. Click **"Join Now"** for immediate join, or select a date/time and click **"Schedule Meeting"**.
+4. A Brave browser window opens → camera/mic disabled → auto-joins the meeting.
+5. When the meeting ends, transcription and summarization happen automatically.
+6. View results on the Meeting Details page.
+
+### Join a Meeting (API)
+
+```bash
+curl -X POST http://localhost:4001/api/meetings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://meet.google.com/xxx-xxxx-xxx",
+    "braveExecutable": "/usr/bin/brave-browser",
+    "userDataDir": "/home/YOUR_USER/.config/BraveSoftware/Brave-Browser/Default"
+  }'
+```
+
+---
 
 ## Troubleshooting
 
-### Issue: "Missing url/userDataDir/braveExecutable"
-- Make sure you've updated the paths in `SchedulerForm.jsx`
-- Verify the paths exist on your system
+### Port in use
 
-### Issue: Browser doesn't open
-- Check that Brave is installed at the specified path
-- Try opening Brave manually to ensure it works
-- Check the logs in `automation-service/logs/` directory
+```bash
+lsof -ti:4001 | xargs kill -9   # Automation
+lsof -ti:5002 | xargs kill -9   # STT
+lsof -ti:6000 | xargs kill -9   # Local STT
+lsof -ti:7000 | xargs kill -9   # NLP
+lsof -ti:3000 | xargs kill -9   # Frontend
+```
 
-### Issue: CORS errors
-- Make sure automation service is running on port 4001
-- Check that frontend is configured to use `http://localhost:4001`
+### Can't find Brave browser
 
-### Issue: "Failed to join meeting"
-- Check the browser console (F12) for detailed errors
-- Check the automation service terminal for error messages
-- Verify your Google account is logged into Brave
+```bash
+which brave-browser
+ls /usr/bin/brave*
+find / -name "brave-browser" 2>/dev/null
+```
 
-## How It Works
+### PulseAudio not running
 
-1. **Frontend** (`localhost:5173`): React app where you paste meeting links
-2. **Automation Service** (`localhost:4001`): Express server that spawns browser automation
-3. **Playwright**: Controls Brave browser to join Google Meet
-4. **Flow**: 
-   - User pastes link → Frontend sends to automation service → Service spawns Playwright → Browser joins meeting
+```bash
+pulseaudio --start
+pactl list short sources
+```
 
-## Next Steps
+### Missing Node.js modules
 
-After successful setup:
-- The browser will open with camera and mic off
-- It will automatically click "Ask to join"
-- You can manually approve from the meeting if needed
+```bash
+cd <service-dir> && rm -rf node_modules && npm install
+```
+
+### Python virtual environment issues
+
+```bash
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```

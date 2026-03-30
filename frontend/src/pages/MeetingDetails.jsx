@@ -56,7 +56,12 @@ export default function MeetingDetails() {
               <h2 style={{ margin: 0 }}>Meeting for {meeting.email}</h2>
               <div className="muted" style={{ marginTop: 6 }}>{meeting.time ? new Date(meeting.time).toLocaleString() : meeting.time}</div>
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {meeting.processing_mode === 'local' ? (
+                <span className="mode-badge mode-badge--local">🛡️ Private Mode</span>
+              ) : (
+                <span className="mode-badge mode-badge--cloud">⚡ Fast Mode</span>
+              )}
               <a href={meeting.link} target="_blank" rel="noreferrer"><button className="secondary">Open Meet</button></a>
             </div>
           </div>

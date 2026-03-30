@@ -31,7 +31,14 @@ export default function MeetingsPage() {
               <div className="meeting-meta">
                 <div style={{ fontWeight: 800 }}>{m.email}</div>
                 <div className="muted" style={{ fontSize: 13 }}>{m.time ? new Date(m.time).toLocaleString() : m.time}</div>
-                <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{m.link}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <div className="muted" style={{ fontSize: 13 }}>{m.link}</div>
+                  {m.processing_mode === 'local' ? (
+                    <span className="mode-badge mode-badge--local">🛡️ Private</span>
+                  ) : (
+                    <span className="mode-badge mode-badge--cloud">⚡ Fast</span>
+                  )}
+                </div>
               </div>
 
               <div className="meeting-actions">
